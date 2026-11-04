@@ -1,0 +1,86 @@
+name: AHMED BUILDER - Android APK Pipeline
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  workflow_dispatch:
+    inputs:
+      gradle_task:
+        description: 'Gradle Build Task'
+        required: false
+        default: ':app:assembleDebug'
+      custom_args:
+        description: 'Custom Gradle arguments'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Setup Gradle Build Tool
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      - name: Validate and Grant Permissions for Gradle Wrapper
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            echo "Gradle wrapper found and executable."
+          else
+            echo "Gradle wrapper not present. Bootstrapping wrapper..."
+            gradle wrapper || true
+            chmod +x ./gradlew || true
+          fi
+
+      - name: Compile and Package Android Application
+        run: |
+          TASK="${{ github.event.inputs.gradle_task || ':app:assembleDebug' }}"
+          ARGS="${{ github.event.inputs.custom_args || '' }}"
+          echo "========================================================="
+          echo "  AHMED BUILDER Pipeline"
+          echo "  Target Task: $TASK"
+          echo "  Extra Args:  $ARGS"
+          echo "  Java Home:   $JAVA_HOME"
+          echo "========================================================="
+          ./gradlew $TASK --stacktrace $ARGS
+
+      - name: Inspect Output Artifacts
+        if: always()
+        run: |
+          echo "=== Scanning for Generated APKs ==="
+          APKS=$(find . -type f -name "*.apk" | grep -v "/intermediates/")
+          if [ -n "$APKS" ]; then
+            echo "Generated APK files found:"
+            ls -lh $APKS
+          else
+            echo "Warning: No APK files were found in build output directories."
+            echo "Check build logs above for compilation errors or test failures."
+          fi
+
+      - name: Upload APK Artifacts
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: app-debug-apk
+          path: |
+            **/build/outputs/apk/**/*.apk
+            **/build/outputs/bundle/**/*.aab
+          if-no-files-found: warn
+          retention-days: 14
