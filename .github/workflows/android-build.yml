@@ -8,7 +8,7 @@ on:
       gradle_task:
         description: 'Gradle Build Task'
         required: false
-        default: 'assembleRelease'
+        default: 'assembleDebug'
       custom_args:
         description: 'Custom Gradle arguments'
         required: false
@@ -51,7 +51,7 @@ jobs:
 
       - name: Compile and Package Android Application
         run: |
-          TASK="${{ github.event.inputs.gradle_task || 'assembleRelease' }}"
+          TASK="${{ github.event.inputs.gradle_task || 'assembleDebug' }}"
           ARGS="${{ github.event.inputs.custom_args || '' }}"
           echo "========================================================="
           echo "  AHMED BUILDER Pipeline"
